@@ -1,0 +1,14 @@
+# depslib dependency file v1.0
+1547019793 source:/Users/ppx/Desktop/Centrale/3A/RenduGraphique/RenduGraphiqueCplusplus/main.cpp
+	<iostream>
+	<vector>
+	"stb_image_write.h"
+
+1547019765 /Users/ppx/Desktop/Centrale/3A/RenduGraphique/RenduGraphiqueCplusplus/stb_image_write.h
+	<stdio.h>
+	<stdarg.h>
+	<stdlib.h>
+	<string.h>
+	<math.h>
+	<assert.h>
+
