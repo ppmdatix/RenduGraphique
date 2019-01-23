@@ -243,73 +243,7 @@ double sigma = .2;
 
 std::normal_distribution<double> n(mu, sigma);
 
-class integrercos10 {
-public:
-	integrercos10(int N): N(N) {};
-	double generate(){
-		double somme = 0;
-		
-		for  (int i=0; i<N; i++){
-			double theta = -M_PI/2 + u(e) * M_PI;
-			somme = somme + pow(cos(theta),10.) * M_PI;
-		}
-		somme = somme / N;
-		cout << somme;
-		
-		return somme;
-		}
-		
-	double generateNormal(){
-		double somme = 0;
-		
-		for  (int i=0; i<N; i++){
-			double theta = n(e);
-			if (abs(theta)<(M_PI/2)){
-				double ptheta = exp(-pow(theta-mu,2)/(2*sigma*sigma))/(sigma*sqrt(2+M_PI));
-				somme = somme + pow(cos(theta),10.) / ptheta;
-				}
-			else {cout<< "missed";}
-			//somme = somme + pow(cos(theta),10.) * M_PI;
-		}
-		somme = somme / N;
-		cout << somme;
-		
-		return somme;
-		}
-	double N;
-	
-};
 
-class integrercoscoscos {
-public:
-	integrercoscoscos(int N): N(N) {};
-
-		
-	double generateNormal(){
-		double somme = 0;
-		
-		for  (int i=0; i<N; i++){
-			double theta1 = n(e);
-			double theta2 = n(e);
-			double theta3 = n(e);
-			if (abs(theta1)<(M_PI/2) and abs(theta2)<(M_PI/2) and abs(theta3)<(M_PI/2)){
-				double ptheta1 = exp(-pow(theta1-mu,2)/(2*sigma*sigma))/(sigma*sqrt(2+M_PI));
-				double ptheta2 = exp(-pow(theta2-mu,2)/(2*sigma*sigma))/(sigma*sqrt(2+M_PI));
-				double ptheta3 = exp(-pow(theta3-mu,2)/(2*sigma*sigma))/(sigma*sqrt(2+M_PI));
-				
-				somme = somme + pow(cos(theta1*theta2),30.)*pow(cos(theta3*theta2),30.) / (ptheta1*ptheta2*ptheta3);
-				}
-			else {cout<< "missed";}
-			//somme = somme + pow(cos(theta),10.) * M_PI;
-		}
-		somme = somme / N;
-		cout << somme;
-		
-		return somme;
-		}
-	double N;
-	
-};
 
 
 //#pragma omp parallel for
@@ -344,8 +278,7 @@ int main() {
     scene.addSphere(s5);
     scene.addSphere(s6);
 	scene.addSphere(s7);
-    
-    //Source L(Vector(-10, 20, 40),500000000000);
+  
     
     Vector C(0,0,55);
     
@@ -354,7 +287,7 @@ int main() {
     
     
 
-    
+    #pragma omp parallel for
     for (int i = 0; i < H; i++) {
         for (int j = 0; j < W; j++) {
 			
