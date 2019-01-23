@@ -33,6 +33,12 @@ Vector operator+(const Vector& a, const Vector& b) {
 
 Vector operator-(const Vector& a, const Vector& b) {
     return Vector(a.x - b.x, a.y -b.y, a.z -b.z);
+ 
+}
+
+Vector operator*(const Vector& a, const Vector& b) {
+    return Vector(a.x * b.x, a.y *b.y, a.z *b.z);
+ 
 }
 
 Vector operator-(const Vector& a) {
@@ -50,6 +56,10 @@ Vector operator/(const Vector& a, const double b) {
 double dot(const Vector& a, const Vector& b) {
     return a.x * b.x+ a.y * b.y + a.z *b.z;
 };
+
+Vector cross(const Vector& a, const Vector& b) {
+	return Vector(a.y*b.z-a.z*b.y, a.y*b.z-a.z*b.y,a.y*b.z-a.y*b.x);
+}
 
 // A ray is an origin and a direction
 class Ray {
@@ -107,6 +117,11 @@ public:
 };
 
 
+std::default_random_engine e;
+
+
+std::uniform_real_distribution<double> u(0.,1.);
+
 class Scene {
 public: 
 	Scene() {};
@@ -126,6 +141,25 @@ public:
 		return has_inter;
 	}
 	
+	
+	Vector random_cos(const Vector& N){
+		double r1 = u(e);
+		double r2 = u(e);
+		double wx = cos(2*M_PI*r1)*sqrt(1-r2);
+		double wy = sin(2*M_PI*r1)*sqrt(1-r2);
+		double wz = sqrt(r2);
+		Vector v(wx,wy,wz);
+		
+		Vector T1;
+		Vector T2;
+		if (N.x <= N.y && N.x <= N.z){T1 = Vector(0,-N.z,N.y);}
+		else if (N.y <= N.x && N.y <= N.z){T1 = Vector(-N.z,0,N.x);}
+		else {T1 = Vector(-N.y,N.x,0);}
+		T1.normalize();
+		T2 = cross(N,T1);
+		return  v.x * T1 + v.y *T2 + v.z * N;
+		
+	}
 	Vector getColor(const Ray& ray, int nbrebonds){
 		Source L(Vector(-10, 20, 40),2000000000);
 		Vector rayColor;
@@ -166,6 +200,8 @@ public:
 			}
 		
 			else {
+				
+				//Eclairage direct
 				Vector PL = L.V - P;
 				double distanceLum2 = PL.norm2();
 				PL.normalize();
@@ -179,6 +215,14 @@ public:
 					rayColor.y = L.I * (sphere2.albedo.y / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
 					rayColor.z = L.I * (sphere2.albedo.z / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
 					}
+				//Eclairage indirect
+				
+				Vector reflechi = random_cos(N);
+				Ray ray_reflechi(P+0.001*N, reflechi);
+				rayColor = rayColor + spheres[object].albedo * getColor(ray_reflechi, nbrebonds-1);
+
+				
+				
 			}
 		}
 		else {rayColor = Vector(0.,0.,0.);}
@@ -191,10 +235,7 @@ public:
 };
 
 
-std::default_random_engine e;
 
-
-std::uniform_real_distribution<double> u(0.,1.);
 
 double mu = 0.;
 double sigma = .2;
@@ -280,11 +321,12 @@ int main() {
 	inte.generateNormal();
     int W = 512;
     int H = 512;
+    int Nray = 5;
     
     double fov = 60 * M_PI /180.0;
     double tanoffov = tan(fov*0.5);
     
-    Sphere s(Vector(8,0,0) , 5, Vector(1,1,1), false, true,12);
+    Sphere s(Vector(8,0,0) , 5, Vector(1,1,1), true, true,12);
     Sphere sbis(Vector(-8,0,0) , 5, Vector(1,0,1), false, false,1);
     
     
@@ -316,8 +358,9 @@ int main() {
 			Vector u(j - W/2, H/2-i, - W /(2 * tanoffov));
 			u.normalize();		
 			Ray ray(C,u);
-			Vector pixelColor;
-			pixelColor = scene.getColor(ray, 5);
+			Vector pixelColor(0,0,0);
+			for (int nr = 0; nr < Nray; nr++){pixelColor = pixelColor + scene.getColor(ray, 3);}
+			pixelColor = pixelColor / Nray;
 
 			image[(i*W + j) * 3 + 0] = std::min(255., pow(pixelColor.x,0.45));
             image[(i*W + j) * 3 + 1] = std::min(255., pow(pixelColor.y,0.45));
@@ -325,7 +368,7 @@ int main() {
         }
 	 
     }
-    stbi_write_png("image6.png", W, H, 3, &image[0], 0);
+    stbi_write_png("imageNeige.png", W, H, 3, &image[0], 0);
 
     return 0;
 }
