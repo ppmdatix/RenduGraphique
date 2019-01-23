@@ -5,6 +5,7 @@ using namespace std;
 #define _CRT_SECURE_NO_WARNINGS 1
 
 #include <vector>
+#include <random>
 
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"
@@ -59,7 +60,7 @@ public:
 }	;
 class Sphere {
 public:
-    Sphere(const Vector& O, double R, Vector albedo, bool mirror, bool transparent): O(O), R(R), albedo(albedo), mirror(mirror), transparent(transparent) {};
+    Sphere(const Vector& O, double R, Vector albedo, bool mirror, bool transparent, double nsphere): O(O), R(R), albedo(albedo), mirror(mirror), transparent(transparent), nsphere(nsphere){};
     
     bool intersect(const Ray& r, Vector &P, Vector &N, double &t){
 		double a = 1;
@@ -85,13 +86,15 @@ public:
 		}
 		N = P- O;
 		N.normalize();
-		return (delta>=0);}
+		return (delta>=0);
+	}
 	
     Vector O;
     double R;
     Vector albedo;
     bool mirror;
     bool transparent;
+    double nsphere;
 };
 
 
@@ -113,19 +116,15 @@ public:
 	bool intersection(const Ray& r, Vector &P, Vector &N, double &t, int &object){
 		double smallestt = 1E15;
 		bool has_inter = false;
-		
 		for (int i=0; i<spheres.size(); i++){
 			Vector Plocal, Nlocal;
 			double tlocal;
 			bool inter = spheres[i].intersect(r, Plocal, Nlocal,tlocal);
-			if (inter && t < smallestt){smallestt = tlocal; object = i; t = tlocal;P = Plocal; N=Nlocal;}
+			if (inter && tlocal < smallestt){smallestt = tlocal; object = i; t = tlocal;P = Plocal; N=Nlocal;}
 			if (inter){has_inter =true;}
-			}
-		return has_inter;
 		}
-		
-		
-	
+		return has_inter;
+	}
 	
 	Vector getColor(const Ray& ray, int nbrebonds){
 		Source L(Vector(-10, 20, 40),2000000000);
@@ -137,6 +136,35 @@ public:
 					Ray rayR(P + 0.001 * N, R);
 					rayColor = getColor(rayR,nbrebonds-1);
 					}
+			else if (spheres[object].transparent && nbrebonds > 0){
+				double rapportN = (1/spheres[object].nsphere);
+				
+				double racine =1 -  rapportN * rapportN * (1-dot(ray.u, N)*dot(ray.u, N)); 
+				if (racine < 0){
+					Vector PL = L.V - P;
+					double distanceLum2 = PL.norm2();
+					PL.normalize();
+					Ray rayon_lumiere(P + 0.001*N,PL);
+					Vector Pprime, Nprime;int objectprime;double tprime;
+					bool ombre = intersection(rayon_lumiere, Pprime,Nprime, tprime,objectprime);
+					if (ombre && tprime*tprime < distanceLum2){rayColor = Vector(0.,0.,0.);} 
+					else {
+						Sphere sphere2 = spheres[object];
+						rayColor.x = L.I * (sphere2.albedo.x / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
+						rayColor.y = L.I * (sphere2.albedo.y / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
+						rayColor.z = L.I * (sphere2.albedo.z / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
+						}
+				}
+				else {
+					Vector R =  rapportN*ray.u - (rapportN * dot(ray.u,N) + sqrt(racine))*N;
+					Ray rayR(P + 0.001 * N, R);
+					rayColor = getColor(rayR,nbrebonds-1);
+				
+					
+				}
+					
+			}
+		
 			else {
 				Vector PL = L.V - P;
 				double distanceLum2 = PL.norm2();
@@ -150,17 +178,95 @@ public:
 					rayColor.x = L.I * (sphere2.albedo.x / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
 					rayColor.y = L.I * (sphere2.albedo.y / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
 					rayColor.z = L.I * (sphere2.albedo.z / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
-					 }
-				}
-			
+					}
 			}
+		}
 		else {rayColor = Vector(0.,0.,0.);}
 
 		return rayColor;
 		
-		}
+	}
 	
 	std::vector<Sphere> spheres;
+};
+
+
+std::default_random_engine e;
+
+
+std::uniform_real_distribution<double> u(0.,1.);
+
+double mu = 0.;
+double sigma = .2;
+
+std::normal_distribution<double> n(mu, sigma);
+
+class integrercos10 {
+public:
+	integrercos10(int N): N(N) {};
+	double generate(){
+		double somme = 0;
+		
+		for  (int i=0; i<N; i++){
+			double theta = -M_PI/2 + u(e) * M_PI;
+			somme = somme + pow(cos(theta),10.) * M_PI;
+		}
+		somme = somme / N;
+		cout << somme;
+		
+		return somme;
+		}
+		
+	double generateNormal(){
+		double somme = 0;
+		
+		for  (int i=0; i<N; i++){
+			double theta = n(e);
+			if (abs(theta)<(M_PI/2)){
+				double ptheta = exp(-pow(theta-mu,2)/(2*sigma*sigma))/(sigma*sqrt(2+M_PI));
+				somme = somme + pow(cos(theta),10.) / ptheta;
+				}
+			else {cout<< "missed";}
+			//somme = somme + pow(cos(theta),10.) * M_PI;
+		}
+		somme = somme / N;
+		cout << somme;
+		
+		return somme;
+		}
+	double N;
+	
+};
+
+class integrercoscoscos {
+public:
+	integrercoscoscos(int N): N(N) {};
+
+		
+	double generateNormal(){
+		double somme = 0;
+		
+		for  (int i=0; i<N; i++){
+			double theta1 = n(e);
+			double theta2 = n(e);
+			double theta3 = n(e);
+			if (abs(theta1)<(M_PI/2) and abs(theta2)<(M_PI/2) and abs(theta3)<(M_PI/2)){
+				double ptheta1 = exp(-pow(theta1-mu,2)/(2*sigma*sigma))/(sigma*sqrt(2+M_PI));
+				double ptheta2 = exp(-pow(theta2-mu,2)/(2*sigma*sigma))/(sigma*sqrt(2+M_PI));
+				double ptheta3 = exp(-pow(theta3-mu,2)/(2*sigma*sigma))/(sigma*sqrt(2+M_PI));
+				
+				somme = somme + pow(cos(theta1*theta2),30.)*pow(cos(theta3*theta2),30.) / (ptheta1*ptheta2*ptheta3);
+				}
+			else {cout<< "missed";}
+			//somme = somme + pow(cos(theta),10.) * M_PI;
+		}
+		somme = somme / N;
+		cout << somme;
+		
+		return somme;
+		}
+	double N;
+	
 };
 
 
@@ -169,21 +275,28 @@ public:
 
 
 int main() {
+	
+	integrercoscoscos inte(10000);
+	inte.generateNormal();
     int W = 512;
     int H = 512;
     
     double fov = 60 * M_PI /180.0;
     double tanoffov = tan(fov*0.5);
     
-    Sphere s(Vector(0,0,0) , 10, Vector(1,1,1), false, false);
-    Sphere s2(Vector(0,1000,0) , 940, Vector(.90,.20,.10),false, false);
-    Sphere s3(Vector(0,0,1000) , 940, Vector(.10,.90,.90),false, false);
-    Sphere s4(Vector(0,0,-1000) , 940, Vector(.10,.80,.230),false, false);
-	Sphere s5(Vector(0,-1000,0) , 1010, Vector(.90,.20,.10),false, false);
-    Sphere s6(Vector(1000,0,0) , 940, Vector(.56,.23,.56),false, false);
-	Sphere s7(Vector(-1000,0,0) , 960, Vector(.90,.99,.10),false, false);
+    Sphere s(Vector(8,0,0) , 5, Vector(1,1,1), false, true,12);
+    Sphere sbis(Vector(-8,0,0) , 5, Vector(1,0,1), false, false,1);
+    
+    
+    Sphere s2(Vector(0,1000,0) , 940, Vector(.90,.20,.10),false, false,1);
+    Sphere s3(Vector(0,0,1000) , 940, Vector(.10,.90,.90),false, false,1);
+    Sphere s4(Vector(0,0,-1000) , 940, Vector(.10,.80,.230),false, false,1);
+	Sphere s5(Vector(0,-1000,0) , 960, Vector(.90,.20,.10),false, false,1);
+    Sphere s6(Vector(1000,0,0) , 940, Vector(.56,.23,.56),false, false,1);
+	Sphere s7(Vector(-1000,0,0) , 960, Vector(.90,.99,.10),false, false,1);
     Scene scene;
     scene.addSphere(s);
+    scene.addSphere(sbis);
     scene.addSphere(s2);
     scene.addSphere(s3);
     scene.addSphere(s4);
@@ -191,15 +304,11 @@ int main() {
     scene.addSphere(s6);
 	scene.addSphere(s7);
     
-    
     //Source L(Vector(-10, 20, 40),500000000000);
     
     Vector C(0,0,55);
     
-    
-    
     std::vector<unsigned char> image(W*H * 3, 0);
-    
     
     for (int i = 0; i < H; i++) {
         for (int j = 0; j < W; j++) {
@@ -213,11 +322,10 @@ int main() {
 			image[(i*W + j) * 3 + 0] = std::min(255., pow(pixelColor.x,0.45));
             image[(i*W + j) * 3 + 1] = std::min(255., pow(pixelColor.y,0.45));
             image[(i*W + j) * 3 + 2] = std::min(255., pow(pixelColor.z,0.45));
-            
         }
 	 
     }
-    stbi_write_png("image3.png", W, H, 3, &image[0], 0);
+    stbi_write_png("image6.png", W, H, 3, &image[0], 0);
 
     return 0;
 }
