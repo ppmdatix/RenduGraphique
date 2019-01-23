@@ -58,7 +58,7 @@ double dot(const Vector& a, const Vector& b) {
 };
 
 Vector cross(const Vector& a, const Vector& b) {
-	return Vector(a.y*b.z-a.z*b.y, a.y*b.z-a.z*b.y,a.y*b.z-a.y*b.x);
+	return Vector(a.y*b.z-a.z*b.y, a.z*b.x-a.x*b.z,a.x*b.y-a.y*b.x);
 }
 
 // A ray is an origin and a direction
@@ -161,6 +161,7 @@ public:
 		
 	}
 	Vector getColor(const Ray& ray, int nbrebonds){
+		if (nbrebonds < 0){return Vector(0,0,0);}
 		Source L(Vector(-10, 20, 40),2000000000);
 		Vector rayColor;
 		Vector P, N;double t;int object;
@@ -311,17 +312,15 @@ public:
 };
 
 
-
+//#pragma omp parallel for
 
 
 
 int main() {
-	
-	integrercoscoscos inte(10000);
-	inte.generateNormal();
+
     int W = 512;
     int H = 512;
-    int Nray = 5;
+    int Nray = 40;
     
     double fov = 60 * M_PI /180.0;
     double tanoffov = tan(fov*0.5);
@@ -352,14 +351,26 @@ int main() {
     
     std::vector<unsigned char> image(W*H * 3, 0);
     
+    
+    
+
+    
     for (int i = 0; i < H; i++) {
         for (int j = 0; j < W; j++) {
 			
-			Vector u(j - W/2, H/2-i, - W /(2 * tanoffov));
-			u.normalize();		
-			Ray ray(C,u);
+
 			Vector pixelColor(0,0,0);
-			for (int nr = 0; nr < Nray; nr++){pixelColor = pixelColor + scene.getColor(ray, 3);}
+			for (int nr = 0; nr < Nray; nr++){
+					double r1 = u(e);
+					double r2 = u(e);
+					double offsetx = cos(2*M_PI*r1)*log(1-log(r2));
+					double offsety = sin(2*M_PI*r1)*sqrt(1-log(r2));
+					Vector u(j - W/2 + offsetx, H/2-i + offsety, - W /(2 * tanoffov));
+					u.normalize();		
+					Ray ray(C,u);
+					
+				
+				pixelColor = pixelColor + scene.getColor(ray, 5);}
 			pixelColor = pixelColor / Nray;
 
 			image[(i*W + j) * 3 + 0] = std::min(255., pow(pixelColor.x,0.45));
@@ -368,7 +379,7 @@ int main() {
         }
 	 
     }
-    stbi_write_png("imageNeige.png", W, H, 3, &image[0], 0);
+    stbi_write_png("imageNeige2.png", W, H, 3, &image[0], 0);
 
     return 0;
 }
