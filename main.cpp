@@ -263,9 +263,9 @@ int main() {
     double fov = 60 * M_PI /180.0;
     double tanoffov = tan(fov*0.5);
     
-    Sphere s(Vector(8,0,0) , 5, Vector(1,1,1), true, true,12);
+    Sphere s(Vector(8,0,0) , 5, Vector(1,1,1), true, false,12);
     Sphere sbis(Vector(-8,-5,0) , 5, Vector(1,1,1), false, true,2.5);
-    Sphere stris(Vector(0,0,20) , 2, Vector(1,0,1), true, false,1);
+    Sphere stris(Vector(0,0,20) , 2, Vector(1,0,1), false, false,1);
     
     
     Sphere s2(Vector(0,1000,0) , 940, Vector(.90,.20,.10),false, false,1);
@@ -304,10 +304,19 @@ int main() {
 					double r2 = u(e);
 					double offsetx = cos(2*M_PI*r1)*log(1-log(r2));
 					double offsety = sin(2*M_PI*r1)*sqrt(1-log(r2));
-					Vector u(j - W/2 + offsetx, H/2-i + offsety, - W /(2 * tanoffov));
-					u.normalize();		
-					Ray ray(C,u);
 					
+					
+					double theta = M_PI/8;
+					Vector direction(0,sin(theta),cos(theta));
+					Vector up(0,sin(theta - M_PI/2),cos(theta - M_PI/2));
+					Vector right = cross(direction,up);
+					
+					Vector u(j - W/2 + offsetx, H/2-i + offsety, - W /(2 * tanoffov));
+					Vector v = (j - W/2 + offsetx)*right +  (H/2-i + offsety)*up + (- W /(2 * tanoffov))*direction;
+					u.normalize();		
+					v.normalize();
+					//Ray ray(C,u);
+					Ray ray(C,v);
 				
 				pixelColor = pixelColor + scene.getColor(ray, 5);}
 			pixelColor = pixelColor / Nray;
