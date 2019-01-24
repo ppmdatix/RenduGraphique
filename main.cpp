@@ -166,38 +166,41 @@ public:
 		Vector rayColor;
 		Vector P, N;double t;int object;
 		if (intersection(ray,P,N,t,object)){
-			if (spheres[object].mirror && nbrebonds > 0){
+			if (spheres[object].mirror ){
 					Vector R = ray.u - 2 * dot(ray.u, N)*N;
 					Ray rayR(P + 0.001 * N, R);
 					rayColor = getColor(rayR,nbrebonds-1);
 					}
-			else if (spheres[object].transparent && nbrebonds > 0){
-				double rapportN = (1/spheres[object].nsphere);
+			else if (spheres[object].transparent){
+				double nair = 1.;
+				double rapportN = (nair/spheres[object].nsphere);
+				double incidence = dot(ray.u,N);
+				Vector Nused = N;
 				
-				double racine =1 -  rapportN * rapportN * (1-dot(ray.u, N)*dot(ray.u, N)); 
-				if (racine < 0){
+				if (incidence < 0){}
+				else {rapportN = 1./rapportN; Nused = - N;}
+				
+				double racine =1 -  rapportN * rapportN * (1-dot(ray.u, Nused)*dot(ray.u, Nused)); 
+				if (racine < 0 and false){
 					Vector PL = L.V - P;
 					double distanceLum2 = PL.norm2();
 					PL.normalize();
-					Ray rayon_lumiere(P + 0.001*N,PL);
+					Ray rayon_lumiere(P + 0.001*Nused,PL);
 					Vector Pprime, Nprime;int objectprime;double tprime;
 					bool ombre = intersection(rayon_lumiere, Pprime,Nprime, tprime,objectprime);
 					if (ombre && tprime*tprime < distanceLum2){rayColor = Vector(0.,0.,0.);} 
 					else {
 						Sphere sphere2 = spheres[object];
-						rayColor.x = L.I * (sphere2.albedo.x / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
-						rayColor.y = L.I * (sphere2.albedo.y / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
-						rayColor.z = L.I * (sphere2.albedo.z / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
+						rayColor.x = L.I * (sphere2.albedo.x / M_PI) * max(0.,dot(Nused,PL)) / (4 * M_PI * distanceLum2);
+						rayColor.y = L.I * (sphere2.albedo.y / M_PI) * max(0.,dot(Nused,PL)) / (4 * M_PI * distanceLum2);
+						rayColor.z = L.I * (sphere2.albedo.z / M_PI) * max(0.,dot(Nused,PL)) / (4 * M_PI * distanceLum2);
 						}
 				}
-				else {
-					Vector R =  rapportN*ray.u - (rapportN * dot(ray.u,N) + sqrt(racine))*N;
-					Ray rayR(P + 0.001 * N, R);
+				else if (racine > 0){
+					Vector R =  rapportN*ray.u - (rapportN * dot(ray.u,Nused) + sqrt(racine))*Nused;
+					Ray rayR(P + 0.001 * Nused, R);
 					rayColor = getColor(rayR,nbrebonds-1);
-				
-					
 				}
-					
 			}
 		
 			else {
@@ -254,13 +257,14 @@ int main() {
 
     int W = 512;
     int H = 512;
-    int Nray = 40;
+    int Nray = 10;
     
     double fov = 60 * M_PI /180.0;
     double tanoffov = tan(fov*0.5);
     
     Sphere s(Vector(8,0,0) , 5, Vector(1,1,1), true, true,12);
-    Sphere sbis(Vector(-8,0,0) , 5, Vector(1,0,1), false, false,1);
+    Sphere sbis(Vector(-8,0,0) , 5, Vector(1,1,1), false, true,1.2);
+    Sphere stris(Vector(0,0,20) , 2, Vector(1,0,1), true, false,1);
     
     
     Sphere s2(Vector(0,1000,0) , 940, Vector(.90,.20,.10),false, false,1);
@@ -272,6 +276,7 @@ int main() {
     Scene scene;
     scene.addSphere(s);
     scene.addSphere(sbis);
+    scene.addSphere(stris);
     scene.addSphere(s2);
     scene.addSphere(s3);
     scene.addSphere(s4);
