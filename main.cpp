@@ -171,6 +171,7 @@ public:
 					Ray rayR(P + 0.001 * N, R);
 					rayColor = getColor(rayR,nbrebonds-1);
 					}
+			
 			else if (spheres[object].transparent){
 				double nair = 1.;
 				double rapportN = (nair/spheres[object].nsphere);
@@ -178,9 +179,9 @@ public:
 				Vector Nused = N;
 				
 				if (incidence < 0){}
-				else {rapportN = 1./rapportN; Nused = - N;}
+				else {;rapportN = 1./rapportN; Nused = - N;}
 				
-				double racine =1 -  rapportN * rapportN * (1-dot(ray.u, Nused)*dot(ray.u, Nused)); 
+				double racine = 1 -  rapportN * rapportN * (1-dot(ray.u, Nused)*dot(ray.u, Nused)); 
 				if (racine < 0 and false){
 					Vector PL = L.V - P;
 					double distanceLum2 = PL.norm2();
@@ -198,7 +199,7 @@ public:
 				}
 				else if (racine > 0){
 					Vector R =  rapportN*ray.u - (rapportN * dot(ray.u,Nused) + sqrt(racine))*Nused;
-					Ray rayR(P + 0.001 * Nused, R);
+					Ray rayR(P - 0.001 * Nused, R);
 					rayColor = getColor(rayR,nbrebonds-1);
 				}
 			}
@@ -263,7 +264,7 @@ int main() {
     double tanoffov = tan(fov*0.5);
     
     Sphere s(Vector(8,0,0) , 5, Vector(1,1,1), true, true,12);
-    Sphere sbis(Vector(-8,0,0) , 5, Vector(1,1,1), false, true,1.2);
+    Sphere sbis(Vector(-8,-5,0) , 5, Vector(1,1,1), false, true,2.5);
     Sphere stris(Vector(0,0,20) , 2, Vector(1,0,1), true, false,1);
     
     
