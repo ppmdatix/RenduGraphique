@@ -255,12 +255,6 @@ double sigma = .2;
 std::normal_distribution<double> n(mu, sigma);
 
 
-
-
-//#pragma omp parallel for
-
-
-
 int main() {
 
     int W = 512;
