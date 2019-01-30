@@ -123,6 +123,7 @@ std::default_random_engine e;
 
 
 std::uniform_real_distribution<double> u(0.,1.);
+int nbrebondMAX = 5;
 
 class Scene {
 public: 
@@ -164,6 +165,11 @@ public:
 	}
 	
 	Vector eclairageDirect(Source sourceLumineuse, Vector Pinc, Vector Normale, Vector albedo){
+		
+
+		
+
+				
 		Vector O = sourceLumineuse.V;
 		Vector OX = Pinc - O;
 		Vector OXnormal = OX;
@@ -178,17 +184,29 @@ public:
 		Normale.normalize();
 		XXprime.normalize();
 		OXprime.normalize();
-		Vector direct = sourceLumineuse.I/(4*M_PI_2)  * (dot(omeagaI,Normale)*dot(XXprime,Normale)*(VXXprime?1.:0.)/(XX2*dot(OXnormal,OXprime))) * albedo;
+		Vector direct;
 		
+		Ray rayon_lumiere(Pinc + 0.001*Normale,XXprime);
+		Vector Pprime, Nprime;int objectprime;double tprime;
+		bool ombre = intersection(rayon_lumiere, Pprime,Nprime, tprime,objectprime);
+		if (ombre && tprime*tprime < XX2){direct = Vector(0.,0.,0.);} 
+		else{
+		direct = sourceLumineuse.I/(4*M_PI_2)  * (dot(omeagaI,Normale)*dot(XXprime,Normale)*(VXXprime?1.:0.)/(XX2*dot(OXnormal,OXprime))) * albedo;
+		}
 		return direct;		
 		}
 	
 	
-	Vector getColor(const Ray& ray, int nbrebonds){
+	Vector getColor(const Ray& ray, int nbrebonds, Source L){
 		if (nbrebonds < 0){return Vector(0,0,0);}
-		Source L(Vector(-10, 20, 40),3.,2000000000);
+		//Source L(Vector(-10, 20, 40),3.,2000000000);
 		Vector rayColor;
 		Vector P, N;double t;int object;
+		Sphere Spherelum(L.V, L.rayon, Vector(1,1,1), false, false,1,1);
+		if (Spherelum.intersect(ray,P,N,t)){
+			if (nbrebonds == nbrebondMAX){return L.I *  Vector(1,1,1);}
+			else {return Vector(0,0,0);}
+			}
 		if (intersection(ray,P,N,t,object)){
 			
 			
@@ -196,7 +214,7 @@ public:
 			if (spheres[object].mirror ){
 					Vector R = ray.u - 2 * dot(ray.u, N)*N;
 					Ray rayR(P + 0.001 * N, R);
-					rayColor = getColor(rayR,nbrebonds-1);
+					rayColor = getColor(rayR,nbrebonds-1,L);
 					}
 			
 			
@@ -230,7 +248,7 @@ public:
 				else if (racine > 0){
 					Vector R =  rapportN*ray.u - (rapportN * dot(ray.u,Nused) + sqrt(racine))*Nused;
 					Ray rayR(P - 0.001 * Nused, R);
-					rayColor = getColor(rayR,nbrebonds-1);
+					rayColor = getColor(rayR,nbrebonds-1,L);
 				}
 			}
 		
@@ -244,36 +262,13 @@ public:
 				Vector Pprime, Nprime;int objectprime;double tprime;
 				bool ombre = intersection(rayon_lumiere, Pprime,Nprime, tprime,objectprime);
 				if (ombre && tprime*tprime < distanceLum2){rayColor = Vector(0.,0.,0.);} 
-				else {/*
-					Sphere sphere2 = spheres[object];
-					rayColor.x = L.I * (sphere2.albedo.x / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
-					rayColor.y = L.I * (sphere2.albedo.y / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
-					rayColor.z = L.I * (sphere2.albedo.z / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
-					*/
-					/*
-					Vector O = L.V;
-					Vector OX = P - O;
-					Vector OXnormal = OX;
-					OXnormal.normalize();
-					Vector OXprime = L.rayon * random_cos(OXnormal);
-					Vector Xprime = O + OXprime;
-					Vector XXprime = Xprime - P;
-					bool VXXprime = dot(N,OXprime) < 0;
-					Vector omeagaI = XXprime;
-					omeagaI.normalize();
-					Vector direct = L.I/(4*M_PI_2)  * (dot(omeagaI,N)*dot(XXprime,N)*(VXXprime?1.:0.)/(XXprime.norm2()*dot(OX,OXprime))) * spheres[object].albedo;
-					rayColor = direct;
-					*/
-					rayColor = eclairageDirect( L,  P, N, spheres[object].albedo);
-					
-					}
-					 
-				
+				else {rayColor = rayColor +  eclairageDirect( L,  P, N, spheres[object].albedo);
+					}	
+						
 				//Eclairage indirect
-				
 				Vector reflechi = random_cos(N);
 				Ray ray_reflechi(P+0.001*N, reflechi);
-				rayColor = rayColor + spheres[object].albedo * getColor(ray_reflechi, nbrebonds-1);
+				rayColor = rayColor + spheres[object].albedo * getColor(ray_reflechi, nbrebonds-1,L);
 			}
 
 			/*
@@ -309,6 +304,7 @@ public:
 double mu = 0.;
 double sigma = .2;
 
+
 std::normal_distribution<double> n(mu, sigma);
 
 
@@ -322,31 +318,31 @@ int main() {
 
     int W = 512;
     int H = 512;
-    int Nray = 500;
+    int Nray = 50;
     
     double fov = 60 * M_PI /180.0;
     double tanoffov = tan(fov*0.5);
     
     Sphere s(Vector(8,0,0) , 5, Vector(1,1,1), true, false,12,1);
-    Sphere sbis(Vector(-8,-5,0) , 5, Vector(1,1,1), false, true,2.5,1);
-    Sphere stris(Vector(0,0,20) , 2, Vector(1,0,1), false, false,1,1);
-    Sphere slum(Vector(0,20,0), 2, Vector(1,1,1),false,false,1,1);
+    Sphere sbis(Vector(-8,-5,0) , 5, Vector(1,1,1), false, false,2.5,1);
+    Sphere stris(Vector(0,0,20) , 2, Vector(1,0,1), false, true,12,12);
+    Source Slum(Vector(0, 20, 30),7,2000000000);
     
     
-    Sphere s2(Vector(0,1000,0) , 940, Vector(.90,.20,.10),false, false,1,1);
+    Sphere plafond(Vector(0,1000,0) , 940, Vector(.90,.20,.10),false, false,1,1);
     Sphere s3(Vector(0,0,1000) , 940, Vector(.10,.90,.90),false, false,1,1);
     Sphere s4(Vector(0,0,-1000) , 940, Vector(.10,.80,.230),false, false,1,1);
-	Sphere s5(Vector(0,-1000,0) , 960, Vector(.90,.20,.10),false, false,1,1);
+	Sphere sol(Vector(0,-1000,0) , 980, Vector(.90,.20,.10),false, false,1,1);
     Sphere s6(Vector(1000,0,0) , 940, Vector(.56,.23,.56),false, false,1,1);
 	Sphere s7(Vector(-1000,0,0) , 960, Vector(.90,.99,.10),false, false,1,1);
     Scene scene;
     scene.addSphere(s);
     scene.addSphere(sbis);
     scene.addSphere(stris);
-    scene.addSphere(s2);
+    scene.addSphere(plafond);
     scene.addSphere(s3);
     scene.addSphere(s4);
-    scene.addSphere(s5);
+    scene.addSphere(sol);
     scene.addSphere(s6);
 	scene.addSphere(s7);
   
@@ -387,7 +383,7 @@ int main() {
 					Ray ray(C,v);
 				
 				//Le rayon part 
-				pixelColor = pixelColor + scene.getColor(ray, 7);}
+				pixelColor = pixelColor + scene.getColor(ray, nbrebondMAX,Slum);}
 				
 			// Moyenne des rayons partis
 			pixelColor = pixelColor / Nray;
