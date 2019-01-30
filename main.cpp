@@ -165,11 +165,6 @@ public:
 	}
 	
 	Vector eclairageDirect(Source sourceLumineuse, Vector Pinc, Vector Normale, Vector albedo){
-		
-
-		
-
-				
 		Vector O = sourceLumineuse.V;
 		Vector OX = Pinc - O;
 		Vector OXnormal = OX;
@@ -179,20 +174,16 @@ public:
 		Vector XXprime = Xprime - Pinc;
 		bool VXXprime = dot(Normale,OXprime) < 0;
 		Vector omeagaI = XXprime;
-		omeagaI.normalize();
 		double XX2 = XXprime.norm2();
-		Normale.normalize();
-		XXprime.normalize();
-		OXprime.normalize();
+		omeagaI.normalize();Normale.normalize();XXprime.normalize();OXprime.normalize();
 		Vector direct;
 		
+		// On vérifie qu'il n'y a pas d'intersection avant la lumière.
 		Ray rayon_lumiere(Pinc + 0.001*Normale,XXprime);
 		Vector Pprime, Nprime;int objectprime;double tprime;
 		bool ombre = intersection(rayon_lumiere, Pprime,Nprime, tprime,objectprime);
 		if (ombre && tprime*tprime < XX2){direct = Vector(0.,0.,0.);} 
-		else{
-		direct = sourceLumineuse.I/(4*M_PI_2)  * (dot(omeagaI,Normale)*dot(XXprime,Normale)*(VXXprime?1.:0.)/(XX2*dot(OXnormal,OXprime))) * albedo;
-		}
+		else{direct = sourceLumineuse.I/(4*M_PI_2)  * (dot(omeagaI,Normale)*dot(XXprime,Normale)*(VXXprime?1.:0.)/(XX2*dot(OXnormal,OXprime))) * albedo;}
 		return direct;		
 		}
 	
@@ -208,8 +199,6 @@ public:
 			else {return Vector(0,0,0);}
 			}
 		if (intersection(ray,P,N,t,object)){
-			
-			
 			// MIRROIR
 			if (spheres[object].mirror ){
 					Vector R = ray.u - 2 * dot(ray.u, N)*N;
@@ -226,68 +215,26 @@ public:
 				double incidence = dot(ray.u,N);
 				Vector Nused = N;
 				
-				if (incidence < 0){}
-				else {;rapportN = 1./rapportN; Nused = - N;}
+				if (incidence > 0){rapportN = 1./rapportN; Nused = - N;}
 				
 				double racine = 1 -  rapportN * rapportN * (1-dot(ray.u, Nused)*dot(ray.u, Nused)); 
-				if (racine < 0 and false){
-					Vector PL = L.V - P;
-					double distanceLum2 = PL.norm2();
-					PL.normalize();
-					Ray rayon_lumiere(P + 0.001*Nused,PL);
-					Vector Pprime, Nprime;int objectprime;double tprime;
-					bool ombre = intersection(rayon_lumiere, Pprime,Nprime, tprime,objectprime);
-					if (ombre && tprime*tprime < distanceLum2){rayColor = Vector(0.,0.,0.);} 
-					else {
-						Sphere sphere2 = spheres[object];
-						rayColor.x = L.I * (sphere2.albedo.x / M_PI) * max(0.,dot(Nused,PL)) / (4 * M_PI * distanceLum2);
-						rayColor.y = L.I * (sphere2.albedo.y / M_PI) * max(0.,dot(Nused,PL)) / (4 * M_PI * distanceLum2);
-						rayColor.z = L.I * (sphere2.albedo.z / M_PI) * max(0.,dot(Nused,PL)) / (4 * M_PI * distanceLum2);
-						}
-				}
-				else if (racine > 0){
+				if (racine > 0){
 					Vector R =  rapportN*ray.u - (rapportN * dot(ray.u,Nused) + sqrt(racine))*Nused;
 					Ray rayR(P - 0.001 * Nused, R);
 					rayColor = getColor(rayR,nbrebonds-1,L);
 				}
 			}
 		
-			else if (true){
+			else {
 				
 				//Eclairage direct
-				Vector PL = L.V - P;
-				double distanceLum2 = PL.norm2();
-				PL.normalize();
-				Ray rayon_lumiere(P + 0.001*N,PL);
-				Vector Pprime, Nprime;int objectprime;double tprime;
-				bool ombre = intersection(rayon_lumiere, Pprime,Nprime, tprime,objectprime);
-				if (ombre && tprime*tprime < distanceLum2){rayColor = Vector(0.,0.,0.);} 
-				else {rayColor = rayColor +  eclairageDirect( L,  P, N, spheres[object].albedo);
-					}	
+				rayColor = rayColor +  eclairageDirect( L,  P, N, spheres[object].albedo);
 						
 				//Eclairage indirect
 				Vector reflechi = random_cos(N);
 				Ray ray_reflechi(P+0.001*N, reflechi);
 				rayColor = rayColor + spheres[object].albedo * getColor(ray_reflechi, nbrebonds-1,L);
 			}
-
-			/*
-			else if  (spheres[object].diffus){
-				double alpha = spheres[object].alpha;
-				if (u(e) < alpha ){
-					Vector reflechi = random_cos(N);
-					Ray ray_reflechi(P+0.001*N, reflechi);	
-				}
-				else {
-					Vector reflechi = random_cos(N);
-					Ray ray_reflechi(P+0.001*N, reflechi);	
-				}
-				double pdf = alpha*p_lampe(rayon_reflechi) + (1-alpha)*p_diffus(rayon_reflechi);
-
-				
-				
-			}
-			* */
 		}
 		else {rayColor = Vector(0.,0.,0.);}
 
@@ -318,14 +265,14 @@ int main() {
 
     int W = 512;
     int H = 512;
-    int Nray = 50;
+    int Nray = 100;
     
     double fov = 60 * M_PI /180.0;
     double tanoffov = tan(fov*0.5);
     
-    Sphere s(Vector(8,0,0) , 5, Vector(1,1,1), true, false,12,1);
-    Sphere sbis(Vector(-8,-5,0) , 5, Vector(1,1,1), false, false,2.5,1);
-    Sphere stris(Vector(0,0,20) , 2, Vector(1,0,1), false, true,12,12);
+    Sphere s(Vector(8,-9,0) , 5, Vector(1,1,1), true, false,12,1);
+    Sphere sbis(Vector(-8,-9,0) , 5, Vector(1,1,1), false, false,2.5,1);
+    Sphere stris(Vector(0,-9,20) , 2, Vector(1,0,1), false, true,1.4,1.4);
     Source Slum(Vector(0, 20, 30),7,2000000000);
     
     
