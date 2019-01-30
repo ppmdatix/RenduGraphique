@@ -70,7 +70,7 @@ public:
 }	;
 class Sphere {
 public:
-    Sphere(const Vector& O, double R, Vector albedo, bool mirror, bool transparent, double nsphere): O(O), R(R), albedo(albedo), mirror(mirror), transparent(transparent), nsphere(nsphere){};
+    Sphere(const Vector& O, double R, Vector albedo, bool mirror, bool transparent, double nsphere, double emissivite): O(O), R(R), albedo(albedo), mirror(mirror), transparent(transparent), nsphere(nsphere), emissivite(emissivite){};
     
     bool intersect(const Ray& r, Vector &P, Vector &N, double &t){
 		double a = 1;
@@ -105,13 +105,15 @@ public:
     bool mirror;
     bool transparent;
     double nsphere;
+    double emissivite;
 };
 
 
 class Source {
 public:
-	Source(const Vector& V, double I): V(V), I(I) {};
+	Source(const Vector& V,double rayon, double I): V(V), rayon(rayon), I(I) {};
 	Vector V;
+	double rayon;
 	double I;
 	
 };
@@ -160,17 +162,45 @@ public:
 		return  v.x * T1 + v.y *T2 + v.z * N;
 		
 	}
+	
+	Vector eclairageDirect(Source sourceLumineuse, Vector Pinc, Vector Normale, Vector albedo){
+		Vector O = sourceLumineuse.V;
+		Vector OX = Pinc - O;
+		Vector OXnormal = OX;
+		OXnormal.normalize();
+		Vector OXprime = sourceLumineuse.rayon * random_cos(OXnormal);
+		Vector Xprime = O + OXprime;
+		Vector XXprime = Xprime - Pinc;
+		bool VXXprime = dot(Normale,OXprime) < 0;
+		Vector omeagaI = XXprime;
+		omeagaI.normalize();
+		double XX2 = XXprime.norm2();
+		Normale.normalize();
+		XXprime.normalize();
+		OXprime.normalize();
+		Vector direct = sourceLumineuse.I/(4*M_PI_2)  * (dot(omeagaI,Normale)*dot(XXprime,Normale)*(VXXprime?1.:0.)/(XX2*dot(OXnormal,OXprime))) * albedo;
+		
+		return direct;		
+		}
+	
+	
 	Vector getColor(const Ray& ray, int nbrebonds){
 		if (nbrebonds < 0){return Vector(0,0,0);}
-		Source L(Vector(-10, 20, 40),2000000000);
+		Source L(Vector(-10, 20, 40),3.,2000000000);
 		Vector rayColor;
 		Vector P, N;double t;int object;
 		if (intersection(ray,P,N,t,object)){
+			
+			
+			// MIRROIR
 			if (spheres[object].mirror ){
 					Vector R = ray.u - 2 * dot(ray.u, N)*N;
 					Ray rayR(P + 0.001 * N, R);
 					rayColor = getColor(rayR,nbrebonds-1);
 					}
+			
+			
+			//TRANSPARENT
 			
 			else if (spheres[object].transparent){
 				double nair = 1.;
@@ -204,7 +234,7 @@ public:
 				}
 			}
 		
-			else {
+			else if (true){
 				
 				//Eclairage direct
 				Vector PL = L.V - P;
@@ -214,21 +244,55 @@ public:
 				Vector Pprime, Nprime;int objectprime;double tprime;
 				bool ombre = intersection(rayon_lumiere, Pprime,Nprime, tprime,objectprime);
 				if (ombre && tprime*tprime < distanceLum2){rayColor = Vector(0.,0.,0.);} 
-				else {
+				else {/*
 					Sphere sphere2 = spheres[object];
 					rayColor.x = L.I * (sphere2.albedo.x / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
 					rayColor.y = L.I * (sphere2.albedo.y / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
 					rayColor.z = L.I * (sphere2.albedo.z / M_PI) * max(0.,dot(N,PL)) / (4 * M_PI * distanceLum2);
+					*/
+					/*
+					Vector O = L.V;
+					Vector OX = P - O;
+					Vector OXnormal = OX;
+					OXnormal.normalize();
+					Vector OXprime = L.rayon * random_cos(OXnormal);
+					Vector Xprime = O + OXprime;
+					Vector XXprime = Xprime - P;
+					bool VXXprime = dot(N,OXprime) < 0;
+					Vector omeagaI = XXprime;
+					omeagaI.normalize();
+					Vector direct = L.I/(4*M_PI_2)  * (dot(omeagaI,N)*dot(XXprime,N)*(VXXprime?1.:0.)/(XXprime.norm2()*dot(OX,OXprime))) * spheres[object].albedo;
+					rayColor = direct;
+					*/
+					rayColor = eclairageDirect( L,  P, N, spheres[object].albedo);
+					
 					}
+					 
+				
 				//Eclairage indirect
 				
 				Vector reflechi = random_cos(N);
 				Ray ray_reflechi(P+0.001*N, reflechi);
 				rayColor = rayColor + spheres[object].albedo * getColor(ray_reflechi, nbrebonds-1);
+			}
+
+			/*
+			else if  (spheres[object].diffus){
+				double alpha = spheres[object].alpha;
+				if (u(e) < alpha ){
+					Vector reflechi = random_cos(N);
+					Ray ray_reflechi(P+0.001*N, reflechi);	
+				}
+				else {
+					Vector reflechi = random_cos(N);
+					Ray ray_reflechi(P+0.001*N, reflechi);	
+				}
+				double pdf = alpha*p_lampe(rayon_reflechi) + (1-alpha)*p_diffus(rayon_reflechi);
 
 				
 				
 			}
+			* */
 		}
 		else {rayColor = Vector(0.,0.,0.);}
 
@@ -258,22 +322,23 @@ int main() {
 
     int W = 512;
     int H = 512;
-    int Nray = 10;
+    int Nray = 500;
     
     double fov = 60 * M_PI /180.0;
     double tanoffov = tan(fov*0.5);
     
-    Sphere s(Vector(8,0,0) , 5, Vector(1,1,1), true, false,12);
-    Sphere sbis(Vector(-8,-5,0) , 5, Vector(1,1,1), false, true,2.5);
-    Sphere stris(Vector(0,0,20) , 2, Vector(1,0,1), false, false,1);
+    Sphere s(Vector(8,0,0) , 5, Vector(1,1,1), true, false,12,1);
+    Sphere sbis(Vector(-8,-5,0) , 5, Vector(1,1,1), false, true,2.5,1);
+    Sphere stris(Vector(0,0,20) , 2, Vector(1,0,1), false, false,1,1);
+    Sphere slum(Vector(0,20,0), 2, Vector(1,1,1),false,false,1,1);
     
     
-    Sphere s2(Vector(0,1000,0) , 940, Vector(.90,.20,.10),false, false,1);
-    Sphere s3(Vector(0,0,1000) , 940, Vector(.10,.90,.90),false, false,1);
-    Sphere s4(Vector(0,0,-1000) , 940, Vector(.10,.80,.230),false, false,1);
-	Sphere s5(Vector(0,-1000,0) , 960, Vector(.90,.20,.10),false, false,1);
-    Sphere s6(Vector(1000,0,0) , 940, Vector(.56,.23,.56),false, false,1);
-	Sphere s7(Vector(-1000,0,0) , 960, Vector(.90,.99,.10),false, false,1);
+    Sphere s2(Vector(0,1000,0) , 940, Vector(.90,.20,.10),false, false,1,1);
+    Sphere s3(Vector(0,0,1000) , 940, Vector(.10,.90,.90),false, false,1,1);
+    Sphere s4(Vector(0,0,-1000) , 940, Vector(.10,.80,.230),false, false,1,1);
+	Sphere s5(Vector(0,-1000,0) , 960, Vector(.90,.20,.10),false, false,1,1);
+    Sphere s6(Vector(1000,0,0) , 940, Vector(.56,.23,.56),false, false,1,1);
+	Sphere s7(Vector(-1000,0,0) , 960, Vector(.90,.99,.10),false, false,1,1);
     Scene scene;
     scene.addSphere(s);
     scene.addSphere(sbis);
@@ -300,15 +365,16 @@ int main() {
 
 			Vector pixelColor(0,0,0);
 			for (int nr = 0; nr < Nray; nr++){
+					// Rayon aléatoire généré dans le pixel 
 					double r1 = u(e);
 					double r2 = u(e);
 					double offsetx = cos(2*M_PI*r1)*log(1-log(r2));
 					double offsety = sin(2*M_PI*r1)*sqrt(1-log(r2));
 					
-					
-					double theta = M_PI/8;
+					// Rotation de la camera
+					double theta = 0;//M_PI/8;
 					Vector direction(0,sin(theta),cos(theta));
-					Vector up(0,sin(theta - M_PI/2),cos(theta - M_PI/2));
+					Vector up(0,- sin(theta - M_PI/2),cos(theta - M_PI/2));
 					Vector right = cross(direction,up);
 					
 					Vector u(j - W/2 + offsetx, H/2-i + offsety, - W /(2 * tanoffov));
@@ -316,18 +382,25 @@ int main() {
 					u.normalize();		
 					v.normalize();
 					//Ray ray(C,u);
+					
+					// Le rayon prêt à partir
 					Ray ray(C,v);
 				
-				pixelColor = pixelColor + scene.getColor(ray, 5);}
+				//Le rayon part 
+				pixelColor = pixelColor + scene.getColor(ray, 7);}
+				
+			// Moyenne des rayons partis
 			pixelColor = pixelColor / Nray;
 
+
+			//Mise à jour des pixels
 			image[(i*W + j) * 3 + 0] = std::min(255., pow(pixelColor.x,0.45));
             image[(i*W + j) * 3 + 1] = std::min(255., pow(pixelColor.y,0.45));
             image[(i*W + j) * 3 + 2] = std::min(255., pow(pixelColor.z,0.45));
         }
 	 
     }
-    stbi_write_png("imageNeige2.png", W, H, 3, &image[0], 0);
+    stbi_write_png("image30_01.png", W, H, 3, &image[0], 0);
 
     return 0;
 }
