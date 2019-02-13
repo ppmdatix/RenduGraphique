@@ -183,14 +183,53 @@ public:
 	int group;       // face group
 };
 
+class Bbox{
+public:
+Bbox(){
+	vmin = Vector(1E9,1E9,1E9);
+	vmax = Vector(-1E9,-1E9,-1E9);}
+	
+	bool inter(Ray& r){
+		double t1x = (vmin.x - r.C.x) / r.u.x;
+		double t2x = (vmin.x - r.C.x) / r.u.x;
+		double txmin = min(t1x, t2x);
+		double t1y = (vmin.y - r.C.y) / r.u.y;
+		double t2y = (vmin.y - r.C.y) / r.u.y;
+		double tymin = min(t1y, t2y);
+		double t1z = (vmin.z - r.C.z) / r.u.z;
+		double t2z = (vmin.z - r.C.z) / r.u.z;
+		double tzmin = min(t1z, t2z);
+		
+		t1x = (vmax.x - r.C.x) / r.u.x;
+		t2x = (vmax.x - r.C.x) / r.u.x;
+		double txmax = max(t1x, t2x);
+		t2y = (vmax.y - r.C.y) / r.u.y;
+		t1y = (vmax.y - r.C.y) / r.u.y;
+		double tymax = max(t1y, t2y);
+		t1z = (vmax.z - r.C.z) / r.u.z;
+		t2z = (vmax.z - r.C.z) / r.u.z;
+		double tzmax = max(t1z, t2z);
+		
+		return  min(min(txmax,tymax),min(tymax,tzmax)) > max(max(txmin,tymin),max(txmin,tzmin)) ;
+	}
+	Vector vmin, vmax;
+};
 
-class Geometry  {
+class Geometry :public Object {
 public:
   ~Geometry() {}
-	Geometry() {};
+	Geometry( char* filename,  Vector trans, double scale, Vector albedo, bool mirror, bool transparent, double nsphere, double emissivite){
+		this->albedo = albedo;
+		this->mirror = mirror;
+		this->transparent = transparent;
+		this->nsphere = nsphere;
+		this->emissivite = emissivite;
+		readOBJ(filename);
+		for (int i=0; i<indices.size(); i++){
+			vertices[i] = scale * Vector(vertices[i].x,vertices[i].z,vertices[i].y) +trans;}
+		}
 	
 	void readOBJ(const char* obj) {
-		char matfile[255];
 		char grp[255];
 
 		FILE* f;
@@ -361,15 +400,19 @@ public:
 		fclose(f);
 
 	}
-	bool intersection(const Ray& r, Vector &P, Vector &N, double &t, int &object){
+	
+	
+	
+	virtual bool intersect(const Ray& r, Vector &P, Vector &N, double &t){
+		//cout << "inter" << endl;
 		double smallestt = 1E15;
 		bool has_inter = false;
 		for (int i=0; i<indices.size(); i++){
-			Triangle trilocal(vertices[indices[0].vtxi], vertices[indices[1].vtxj], vertices[indices[2].vtxk], Vector(1,1,1), false, false,12,1);
+			Triangle trilocal(vertices[indices[i].vtxi], vertices[indices[i].vtxj], vertices[indices[i].vtxk], Vector(1,1,1), false, false,12,1);
 			Vector Plocal, Nlocal;
 			double tlocal;
 			bool inter = trilocal.intersect(r, Plocal, Nlocal,tlocal);
-			if (inter && tlocal < smallestt){smallestt = tlocal; object = i; t = tlocal;P = Plocal; N=Nlocal;}
+			if (inter && tlocal < smallestt){smallestt = tlocal; t = tlocal;P = Plocal; N=Nlocal;}
 			if (inter){has_inter =true;}
 		}
 		return has_inter;
@@ -398,7 +441,7 @@ std::default_random_engine e;
 
 
 std::uniform_real_distribution<double> u(0.,1.);
-int nbrebondMAX = 2;
+int nbrebondMAX = 4;
 
 class Scene {
 public: 
@@ -519,13 +562,7 @@ public:
 	//std::vector<Sphere> spheres;
 	std::vector<Object *> spheres;
 };
-// Virtual bool intersect(...) = 0;
-//std::vector<Vector> sommets;
-//std::vector<TripletIndices> triangles;
-//class Triangle {
-//public:
-//	Triangle(Vector )
-//}
+
 
 
 double mu = 0.;
@@ -539,9 +576,9 @@ int main() {
 	cout << "HELLO"<< endl;
 	
 
-    int W = 512;
-    int H = 512;
-    int Nray = 10;
+    int W = 128;
+    int H = 128;
+    int Nray = 2;
     
     double fov = 60 * M_PI /180.0;
     double tanoffov = tan(fov*0.5);
@@ -554,6 +591,7 @@ int main() {
     
     Source Slum(Vector(0, 20, 30),7,2000000000);
     
+    Geometry g("BeautifulGirl.obj", Vector(1,0,1), 15, Vector(0,-10,0), false, false,12,1);
     
     Sphere plafond(Vector(0,1000,0) , 940, Vector(.90,.20,.10),false, false,1,1);
     Sphere s3(Vector(0,0,1000) , 940, Vector(.10,.90,.90),false, false,1,1);
@@ -562,11 +600,13 @@ int main() {
     Sphere s6(Vector(1000,0,0) , 940, Vector(.56,.23,.56),false, false,1,1);
 	Sphere s7(Vector(-1000,0,0) , 960, Vector(.90,.99,.10),false, false,1,1);
     Scene scene;
-    scene.addSphere(&s);
-    scene.addSphere(&sbis);
-    scene.addSphere(&stris);
+    //scene.addSphere(&s);
+    //scene.addSphere(&sbis);
+    //scene.addSphere(&stris);
     
-    scene.addSphere(&triangle);
+    scene.addSphere(&g);
+    
+    //scene.addSphere(&triangle);
     scene.addSphere(&plafond);
     scene.addSphere(&s3);
     scene.addSphere(&s4);
@@ -624,7 +664,7 @@ int main() {
 	 
     }
     cout << "BYE BYE";
-    stbi_write_png("triangleHELLO.png", W, H, 3, &image[0], 0);
+    stbi_write_png("geometry.png", W, H, 3, &image[0], 0);
 
     return 0;
 }
