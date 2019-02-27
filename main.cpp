@@ -234,26 +234,7 @@ public:
 				}
 			
 		bbox.vmin = vmin;
-		bbox.vmax = vmax;
-		cout << vmin.x ;
-		cout << " ";
-		cout << vmin.y ;
-				cout << " ";
-		cout << vmin.z ;
-				cout << " ";
-		cout << vmax.x ;
-				cout << " ";
-		cout << vmax.y ;
-				cout << " ";
-		cout << vmax.z ;
-		
-		if ( bbox.inter(Ray(Vector(0,0,55), Vector(1,0,0)))){cout << " inter";} else {cout << "no inter" << endl;};
-		
-		if ( bbox.inter(Ray(Vector(0,0,55), Vector(0,0,0)))){cout << " inter";} else {cout << "no inter" << endl;};
-		
-		if ( bbox.inter(Ray(Vector(0,0,55), Vector(0,0,1)))){cout << " inter";} else {cout << "no inter" << endl;};
-		
-		
+		bbox.vmax = vmax;		
 	}
 	void readOBJ(const char* obj) {
 		char grp[255];
@@ -478,7 +459,7 @@ std::default_random_engine e;
 
 
 std::uniform_real_distribution<double> u(0.,1.);
-int nbrebondMAX = 4;
+int nbrebondMAX = 2;
 
 class Scene {
 public: 
@@ -615,7 +596,7 @@ int main() {
 
     int W = 128;
     int H = 128;
-    int Nray = 20;
+    int Nray = 4;
     
     double fov = 60 * M_PI /180.0;
     double tanoffov = tan(fov*0.5);
@@ -637,7 +618,7 @@ int main() {
     Sphere s6(Vector(1000,0,0) , 940, Vector(.56,.23,.56),false, false,1,1);
 	Sphere s7(Vector(-1000,0,0) , 960, Vector(.90,.99,.10),false, false,1,1);
     Scene scene;
-    //scene.addSphere(&s);
+    scene.addSphere(&s);
     //scene.addSphere(&sbis);
     //scene.addSphere(&stris);
     
@@ -701,7 +682,7 @@ int main() {
 	 
     }
     cout << "BYE BYE";
-    stbi_write_png("bbox.png", W, H, 3, &image[0], 0);
+    stbi_write_png("bboxsmall.png", W, H, 3, &image[0], 0);
 
     return 0;
 }
