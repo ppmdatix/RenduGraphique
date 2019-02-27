@@ -185,32 +185,24 @@ public:
 
 class Bbox{
 public:
-Bbox(){
-	vmin = Vector(1E9,1E9,1E9);
-	vmax = Vector(-1E9,-1E9,-1E9);}
+	Bbox(){vmin = Vector(1E9,1E9,1E9);vmax = Vector(-1E9,-1E9,-1E9);}
 	
-	bool inter(Ray& r){
+	bool inter(const Ray& r){
 		double t1x = (vmin.x - r.C.x) / r.u.x;
-		double t2x = (vmin.x - r.C.x) / r.u.x;
+		double t2x = (vmax.x - r.C.x) / r.u.x;
 		double txmin = min(t1x, t2x);
-		double t1y = (vmin.y - r.C.y) / r.u.y;
-		double t2y = (vmin.y - r.C.y) / r.u.y;
-		double tymin = min(t1y, t2y);
-		double t1z = (vmin.z - r.C.z) / r.u.z;
-		double t2z = (vmin.z - r.C.z) / r.u.z;
-		double tzmin = min(t1z, t2z);
-		
-		t1x = (vmax.x - r.C.x) / r.u.x;
-		t2x = (vmax.x - r.C.x) / r.u.x;
 		double txmax = max(t1x, t2x);
-		t2y = (vmax.y - r.C.y) / r.u.y;
-		t1y = (vmax.y - r.C.y) / r.u.y;
+		double t1y = (vmin.y - r.C.y) / r.u.y;
+		double t2y = (vmax.y - r.C.y) / r.u.y;
+		double tymin = min(t1y, t2y);
 		double tymax = max(t1y, t2y);
-		t1z = (vmax.z - r.C.z) / r.u.z;
-		t2z = (vmax.z - r.C.z) / r.u.z;
+		double t1z = (vmin.z - r.C.z) / r.u.z;
+		double t2z = (vmax.z - r.C.z) / r.u.z;
+		double tzmin = min(t1z, t2z);
 		double tzmax = max(t1z, t2z);
 		
-		return  min(min(txmax,tymax),min(tymax,tzmax)) > max(max(txmin,tymin),max(txmin,tzmin)) ;
+		
+		return ( min(min(txmax,tymax),tzmax) >= max(max(txmin,tymin),tzmin) );
 	}
 	Vector vmin, vmax;
 };
@@ -226,9 +218,43 @@ public:
 		this->emissivite = emissivite;
 		readOBJ(filename);
 		for (int i=0; i<indices.size(); i++){
-			vertices[i] = scale * Vector(vertices[i].x,vertices[i].z,vertices[i].y) +trans;}
-		}
+			vertices[i] = scale * Vector(vertices[i].x,vertices[i].z,vertices[i].y) + trans;}
+			
 	
+		Vector vmin = bbox.vmin;
+		Vector vmax = bbox.vmax;
+		for (int i=0; i<indices.size(); i++){
+				vmin.x = min(vertices[i].x,vmin.x);
+				vmin.y = min(vertices[i].y,vmin.y);
+				vmin.z = min(vertices[i].z,vmin.z);
+				
+				vmax.x = max(vertices[i].x,vmax.x);
+				vmax.y = max(vertices[i].y,vmax.y);
+				vmax.z = max(vertices[i].z,vmax.z);
+				}
+			
+		bbox.vmin = vmin;
+		bbox.vmax = vmax;
+		cout << vmin.x ;
+		cout << " ";
+		cout << vmin.y ;
+				cout << " ";
+		cout << vmin.z ;
+				cout << " ";
+		cout << vmax.x ;
+				cout << " ";
+		cout << vmax.y ;
+				cout << " ";
+		cout << vmax.z ;
+		
+		if ( bbox.inter(Ray(Vector(0,0,55), Vector(1,0,0)))){cout << " inter";} else {cout << "no inter" << endl;};
+		
+		if ( bbox.inter(Ray(Vector(0,0,55), Vector(0,0,0)))){cout << " inter";} else {cout << "no inter" << endl;};
+		
+		if ( bbox.inter(Ray(Vector(0,0,55), Vector(0,0,1)))){cout << " inter";} else {cout << "no inter" << endl;};
+		
+		
+	}
 	void readOBJ(const char* obj) {
 		char grp[255];
 
@@ -402,18 +428,19 @@ public:
 	}
 	
 	
-	
 	virtual bool intersect(const Ray& r, Vector &P, Vector &N, double &t){
-		//cout << "inter" << endl;
+		if (! bbox.inter(r)){ return false;}
+		
 		double smallestt = 1E15;
 		bool has_inter = false;
+
 		for (int i=0; i<indices.size(); i++){
 			Triangle trilocal(vertices[indices[i].vtxi], vertices[indices[i].vtxj], vertices[indices[i].vtxk], Vector(1,1,1), false, false,12,1);
 			Vector Plocal, Nlocal;
 			double tlocal;
 			bool inter = trilocal.intersect(r, Plocal, Nlocal,tlocal);
 			if (inter && tlocal < smallestt){smallestt = tlocal; t = tlocal;P = Plocal; N=Nlocal;}
-			if (inter){has_inter =true;}
+			if (inter){has_inter=true;}
 		}
 		return has_inter;
 	}
@@ -423,8 +450,17 @@ public:
 	std::vector<Vector> normals;
 	std::vector<Vector> uvs;
 	std::vector<Vector> vertexcolors;
+	Bbox bbox;
 	
 };
+
+//class BVHNode {
+//public:
+//	BVHNode() {};
+//	
+//	Bbox b;
+//	int debut, fin;
+//};
 
 class Source {
 public:
@@ -434,6 +470,7 @@ public:
 	double I;
 	
 };
+
 
 
 
@@ -578,7 +615,7 @@ int main() {
 
     int W = 128;
     int H = 128;
-    int Nray = 2;
+    int Nray = 20;
     
     double fov = 60 * M_PI /180.0;
     double tanoffov = tan(fov*0.5);
@@ -664,7 +701,7 @@ int main() {
 	 
     }
     cout << "BYE BYE";
-    stbi_write_png("geometry.png", W, H, 3, &image[0], 0);
+    stbi_write_png("bbox.png", W, H, 3, &image[0], 0);
 
     return 0;
 }
