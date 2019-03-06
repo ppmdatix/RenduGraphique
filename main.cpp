@@ -21,7 +21,7 @@ using namespace std;
 //Let's define what is a vector.
 class Vector{
 public:
-    Vector(double x = 0, double y = 0, double z = 0): x(x), y(y), z(z) {};
+explicit  Vector(double x = 0, double y = 0, double z = 0): x(x), y(y), z(z) {};
     double norm2() {return x*x +y*y + z*z;}
     void normalize() {
         double n = sqrt(norm2());
@@ -143,30 +143,24 @@ public:
 		}
     
     virtual bool intersect(const Ray& r, Vector &P, Vector &N, double &t){
-		//cout << "inter" << endl;
 		N = -1.0 *  cross(B-A,B-C);
 		N.normalize();
 		if (dot(N,r.u) > 0){N = - N;}
 		if (dot(r.u, N) == 0){return false;}
 		t = dot(A-r.C, N) / dot(r.u, N);
-		P = r.C + t *r.u;
+		if (t<0){return false;}
+		P = r.C + t *r.u + 0.001*N;
 		Vector AB = B - A;
 		Vector AC = C - A;
 		Vector AP = P - A;
-		
 		double num = dot(AB,AB) * dot(AC,AC) - dot(AB,AC) * dot(AB,AC);
-		
-
 		double beta  = (dot(AC,AC) * dot(AP,AB) - dot(AC,AB) * dot (AP,AC)) / num ;
-		//cout << "beta" << endl;
 		if (beta <0){return false;}
 		if (beta >1){return false;}
 		double gamma = (dot(AB,AB) * dot(AP,AC) - dot(AB,AC) * dot (AP,AB)) / num ; 
 		if (gamma <0){return false;}
 		if (gamma >1){return false;}
 		if (beta + gamma > 0.999){return false;}
-		//cout << "true" << endl;
-
 		return true;
 	}
 	Vector A; Vector B; Vector C;
@@ -420,7 +414,7 @@ public:
 			Vector Plocal, Nlocal;
 			double tlocal;
 			bool inter = trilocal.intersect(r, Plocal, Nlocal,tlocal);
-			if (inter && tlocal < smallestt){smallestt = tlocal; t = tlocal;P = Plocal; N=Nlocal;}
+			if (inter && tlocal < smallestt){smallestt = tlocal; t = tlocal; P = Plocal; N=Nlocal;}
 			if (inter){has_inter=true;}
 		}
 		return has_inter;
@@ -435,14 +429,6 @@ public:
 	
 };
 
-//class BVHNode {
-//public:
-//	BVHNode() {};
-//	
-//	Bbox b;
-//	int debut, fin;
-//};
-
 class Source {
 public:
 	Source(const Vector& V,double rayon, double I): V(V), rayon(rayon), I(I) {};
@@ -452,14 +438,11 @@ public:
 	
 };
 
-
-
-
 std::default_random_engine e;
 
 
 std::uniform_real_distribution<double> u(0.,1.);
-int nbrebondMAX = 2;
+int nbrebondMAX = 5;
 
 class Scene {
 public: 
@@ -519,7 +502,9 @@ public:
 		Vector Pprime, Nprime;int objectprime;double tprime;
 		bool ombre = intersection(rayon_lumiere, Pprime,Nprime, tprime,objectprime);
 		if (ombre && tprime*tprime < XX2){direct = Vector(0.,0.,0.);} 
-		else{direct = sourceLumineuse.I/(4*M_PI_2)  * (dot(omeagaI,Normale)*dot(XXprime,Normale)*(VXXprime?1.:0.)/(XX2*dot(OXnormal,OXprime))) * albedo;}
+		else{
+			double facteur = (dot(omeagaI,Normale)*dot(XXprime,Normale)*(VXXprime?1.:0.)/(XX2*dot(OXnormal,OXprime)));
+			direct = sourceLumineuse.I/(4*M_PI_2)  * facteur * albedo;}
 		return direct;		
 		}
 	
@@ -542,9 +527,7 @@ public:
 					rayColor = getColor(rayR,nbrebonds-1,L);
 					}
 			
-			
 			//TRANSPARENT
-			
 			else if (spheres[object]->transparent){
 				double nair = 1.;
 				double rapportN = (nair/spheres[object]->nsphere);
@@ -563,11 +546,13 @@ public:
 		
 			else {
 				//Eclairage direct
-				rayColor = rayColor +  eclairageDirect( L,  P, N, spheres[object]->albedo);
+				
+				Vector eD = eclairageDirect( L,  P, N, spheres[object]->albedo);
+				rayColor = rayColor +  eD;
 						
 				//Eclairage indirect
 				Vector reflechi = random_cos(N);
-				Ray ray_reflechi(P+0.001*N, reflechi);
+				Ray ray_reflechi(P + 0.001 * N, reflechi);
 				rayColor = rayColor + spheres[object]->albedo * getColor(ray_reflechi, nbrebonds-1,L);
 			}
 		}
@@ -594,36 +579,33 @@ int main() {
 	cout << "HELLO"<< endl;
 	
 
-    int W = 128;
-    int H = 128;
-    int Nray = 4;
+    int W = 512;
+    int H = 512;
+    int Nray = 20;
     
     double fov = 60 * M_PI /180.0;
     double tanoffov = tan(fov*0.5);
     
-    Sphere s(Vector(8,-9,0) , 5, Vector(1,1,1), true, false,12,1);
-    Sphere sbis(Vector(-8,-9,0) , 5, Vector(1,1,1), false, false,2.5,1);
-    Sphere stris(Vector(0,-9,20) , 2, Vector(1,0,1), false, true,1.4,1.4);
-    
-    Triangle triangle(Vector(8.2,-9.4,0.3), Vector(-18,-9,0), Vector(0,-9,20) , Vector(1,0,1), false, false,12,1);
+    Sphere s(Vector(9,-9,0) , 5, Vector(.5,.0,.4), false, false,12,1);
+    Sphere sbis(Vector(-9,-9,0) , 5, Vector(1,1,1), true, false,2.5,1);
+    Sphere stris(Vector(0,-9,20) , 2, Vector(.3615,1,1), false, true,1.4,1.4);
+    //Triangle triangle(Vector(8.2,-9.4,0.3), Vector(-18,-9,0), Vector(0,-9,20) , Vector(.3615,1,1), false, false,12,12);
     
     Source Slum(Vector(0, 20, 30),7,2000000000);
     
-    Geometry g("BeautifulGirl.obj", Vector(1,0,1), 15, Vector(0,-10,0), false, false,12,1);
+    Geometry g("BeautifulGirl.obj", Vector(0,-10,0), 15, Vector(.45,.1,.91), false, false,12,1);
     
-    Sphere plafond(Vector(0,1000,0) , 940, Vector(.90,.20,.10),false, false,1,1);
-    Sphere s3(Vector(0,0,1000) , 940, Vector(.10,.90,.90),false, false,1,1);
-    Sphere s4(Vector(0,0,-1000) , 940, Vector(.10,.80,.230),false, false,1,1);
-	Sphere sol(Vector(0,-1000,0) , 980, Vector(.90,.20,.10),false, false,1,1);
-    Sphere s6(Vector(1000,0,0) , 940, Vector(.56,.23,.56),false, false,1,1);
-	Sphere s7(Vector(-1000,0,0) , 960, Vector(.90,.99,.10),false, false,1,1);
+    Sphere plafond(Vector(0,1000,0) , 940, Vector(1,.20,.10),false, false,1,1);
+    Sphere s3(Vector(0,0,1000) , 940, Vector(1,.90,.90),false, false,1,1);
+    Sphere s4(Vector(0,0,-1000) , 940, Vector(1,.80,.230),false, false,1,1);
+	Sphere sol(Vector(0,-1000,0) , 980, Vector(1,.20,.10),false, false,1,1);
+    Sphere s6(Vector(1000,0,0) , 940, Vector(1,.23,.56),false, false,1,1);
+	Sphere s7(Vector(-1000,0,0) , 960, Vector(1,.99,.10),false, false,1,1);
     Scene scene;
-    scene.addSphere(&s);
-    //scene.addSphere(&sbis);
-    //scene.addSphere(&stris);
-    
     scene.addSphere(&g);
-    
+    scene.addSphere(&s);
+    scene.addSphere(&sbis);
+    scene.addSphere(&stris);
     //scene.addSphere(&triangle);
     scene.addSphere(&plafond);
     scene.addSphere(&s3);
@@ -682,7 +664,7 @@ int main() {
 	 
     }
     cout << "BYE BYE";
-    stbi_write_png("bboxsmall.png", W, H, 3, &image[0], 0);
+    stbi_write_png("derniercours.png", W, H, 3, &image[0], 0);
 
     return 0;
 }
